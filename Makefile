@@ -1,4 +1,5 @@
 SHELL := /bin/bash
+.DEFAULT_GOAL := build
 APP_NAME ?= myapp
 # Default build type (debug, release, test)
 BUILD ?= test
@@ -21,22 +22,22 @@ CFLAGS += -Werror=format-security -Werror=implicit -Werror=incompatible-pointer-
 # Build configurations
 ifeq ($(BUILD),release)
   BUILD_DIR := $(BUILD_BASE_DIR)/release
-  TARGET ?= $(BUILD_DIR)/$(APP_NAME)
+  override TARGET := $(BUILD_DIR)/$(APP_NAME)
 else ifeq ($(BUILD),debug)
   CFLAGS := -g -O0 -DDEBUG -fno-omit-frame-pointer -fsanitize=address
   LDFLAGS += -fsanitize=address
   BUILD_DIR := $(BUILD_BASE_DIR)/debug
-  TARGET ?= $(BUILD_DIR)/$(APP_NAME)_d
+  override TARGET := $(BUILD_DIR)/$(APP_NAME)_d
 else ifeq ($(BUILD),test)
   CFLAGS := -g -O0 -DTEST -fprofile-arcs -ftest-coverage
   LDFLAGS += -fprofile-arcs -ftest-coverage
   BUILD_DIR := $(BUILD_BASE_DIR)/tests
-  TEST_TARGET ?= $(BUILD_DIR)/$(APP_NAME)_t
+  override TEST_TARGET := $(BUILD_DIR)/$(APP_NAME)_t
 else ifeq ($(BUILD),debug-test)
   CFLAGS := -g -O0 -DDEBUG -DTEST -fno-omit-frame-pointer -fsanitize=address
   LDFLAGS += -fsanitize=address
   BUILD_DIR := $(BUILD_BASE_DIR)/debug-test
-  TEST_TARGET ?= $(BUILD_DIR)/$(APP_NAME)_td
+  override TEST_TARGET := $(BUILD_DIR)/$(APP_NAME)_td
 else
   $(error Invalid build type: $(BUILD))
 endif
@@ -49,6 +50,13 @@ DEPS := $(OBJS:.o=.d)
 TEST_SRCS := $(shell find $(TEST_DIR) -name *.c)
 TEST_OBJS := $(patsubst $(TEST_DIR)/%.c,$(BUILD_DIR)/%.c.o,$(TEST_SRCS))
 TEST_DEPS := $(TEST_OBJS:.o=.d)
+
+# Default build target for the current build configuration.
+ifeq ($(filter $(BUILD),test debug-test),)
+build: $(TARGET)
+else
+build: $(TEST_TARGET)
+endif
 
 # Link the object files to create the final executable
 $(TARGET): $(OBJS)
@@ -70,7 +78,7 @@ $(BUILD_DIR)/%.c.o: $(TEST_DIR)/%.c
 
 
 # Targets for running tests and cleaning up
-.PHONY: release debug test debug-test all clean print check report report-txt leak leak-test
+.PHONY: build release debug test debug-test all clean print check report report-txt leak leak-test
 # These targets allow you to build in different modes without changing the BUILD variable
 # You can run `make debug`, `make release`, etc.
 # Each target will set the BUILD variable and call the main Makefile target
